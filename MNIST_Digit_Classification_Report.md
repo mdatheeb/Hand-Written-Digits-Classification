@@ -1,4 +1,3 @@
-# Deep Learning Assignment
 ## MNIST Handwritten Digit Classification using TensorFlow/Keras
 
 ---
