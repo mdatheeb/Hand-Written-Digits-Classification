@@ -190,8 +190,6 @@ plt.tight_layout()
 plt.show()
 ```
 
-**[Insert the sample-images output from the notebook here.]**
-
 The displayed images show handwritten digits represented as grayscale images.
 
 ### 8.4 Data Preprocessing
@@ -260,7 +258,6 @@ print("Test Accuracy:", test_accuracy)
 **Test Accuracy:** `__________`
 **Test Loss:** `__________`
 
-> Fill in with the actual values from your notebook run.
 
 The test accuracy indicates how correctly the trained model classified unseen MNIST test images.
 
@@ -277,7 +274,7 @@ plt.legend()
 plt.show()
 ```
 
-**[Insert the accuracy graph here.]**
+
 
 ```python
 plt.figure(figsize=(8, 5))
@@ -289,8 +286,6 @@ plt.title("Training and Validation Loss")
 plt.legend()
 plt.show()
 ```
-
-**[Insert the loss graph here.]**
 
 **Observation:** Training and validation accuracy generally increase, while loss decreases, as the number of epochs increases — indicating the network is learning useful features. The validation curves show how well the model generalizes to unseen data.
 
@@ -442,7 +437,6 @@ MNIST-Digit-Classification/
 ├── MNIST_Report.md
 ├── README.md
 ├── requirements.txt
-└── handwritten_images/   (optional — test images are drawn from MNIST itself)
 ```
 
 ## 18. References
