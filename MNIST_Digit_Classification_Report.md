@@ -1,3 +1,4 @@
+# Deep Learning Assignment
 ## MNIST Handwritten Digit Classification using TensorFlow/Keras
 
 ---
@@ -10,7 +11,7 @@ To build and train a simple neural network using TensorFlow/Keras to classify ha
 
 1. Load and explore the MNIST handwritten digit dataset.
 2. Display sample images from the dataset.
-3. Preprocess and normalize the image data.
+3. Split the training data into training and validation sets, and normalize the image data.
 4. Design a neural network using TensorFlow/Keras.
 5. Compile and train the neural network.
 6. Evaluate the model using test accuracy.
@@ -28,13 +29,13 @@ Handwritten digit recognition is a common introductory problem in machine learni
 
 For this experiment, the **MNIST dataset** is used. MNIST contains grayscale images of handwritten digits and is widely used for evaluating image classification algorithms.
 
-A simple feed-forward neural network is implemented using **TensorFlow/Keras**. The network learns patterns from the pixel values of the training images and uses those learned patterns to classify unseen test images.
+A simple feed-forward neural network is implemented using **TensorFlow/Keras**. The network is organized into small, reusable functions (data loading, preprocessing, model building, training, evaluation, and visualization) rather than one long script, and `train_test_split` from scikit-learn is used to create a dedicated validation set.
 
 ## 4. Dataset Description
 
 | Property | Value |
 |---|---|
-| Training images | 60,000 |
+| Training images (before split) | 60,000 |
 | Testing images | 10,000 |
 | Number of classes | 10 (digits 0–9) |
 | Image size | 28 × 28 pixels |
@@ -78,11 +79,15 @@ $$X_{normalized} = \frac{X}{255}$$
 
 Normalization helps the network train more effectively.
 
-### 5.5 Loss Function
+### 5.5 Train/Validation Split
+
+Instead of letting Keras carve out a validation set automatically (via `validation_split`), the training data is split explicitly using scikit-learn's `train_test_split`, with `stratify=y_train_full` so each digit class is proportionally represented in both the training and validation sets. This gives more visibility and control over exactly how the split is made.
+
+### 5.6 Loss Function
 
 The model uses **Sparse Categorical Cross-Entropy**, since the target labels are integer class values (0–9). It measures the difference between the true class and the predicted probability distribution.
 
-### 5.6 Optimizer
+### 5.7 Optimizer
 
 The **Adam optimizer** updates the network's weights during training, combining momentum with adaptive learning rates.
 
@@ -113,115 +118,129 @@ Input Image (28 × 28)
   Predicted Digit (0–9)
 ```
 
+The model is created by a reusable `build_model()` function so the same code can build both the original (128-neuron) and experimental (256-neuron) versions:
+
 ```python
-model = tf.keras.Sequential([
-    tf.keras.layers.Flatten(input_shape=(28, 28)),
-    tf.keras.layers.Dense(128, activation="relu"),
-    tf.keras.layers.Dense(10, activation="softmax")
-])
+def build_model(hidden_neurons=128, activation="relu"):
+    model = tf.keras.Sequential([
+        tf.keras.layers.Flatten(input_shape=(28, 28)),
+        tf.keras.layers.Dense(hidden_neurons, activation=activation),
+        tf.keras.layers.Dense(10, activation="softmax"),
+    ])
+    model.compile(
+        optimizer="adam",
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"],
+    )
+    return model
 ```
 
 ---
 
 ## 7. Algorithm
 
-1. Import TensorFlow, NumPy, and Matplotlib.
+1. Import TensorFlow, NumPy, Matplotlib, and scikit-learn's `train_test_split`.
 2. Load the MNIST dataset using Keras.
-3. Separate the dataset into training and testing data.
+3. Split the training data into training and validation sets with `train_test_split` (stratified by label).
 4. Display sample images from the training dataset.
-5. Normalize pixel values from 0–255 to 0–1.
-6. Create a Sequential neural network.
-7. Flatten each 28 × 28 image into 784 input values.
-8. Add a Dense hidden layer with 128 neurons and ReLU activation.
-9. Add an output layer with 10 neurons and Softmax activation.
-10. Compile the model using the Adam optimizer and sparse categorical cross-entropy loss.
-11. Train the model for 10 epochs, using 10% of the training data for validation.
-12. Evaluate the trained model on the test dataset.
-13. Plot training and validation accuracy, and training and validation loss.
-14. Randomly select five images from the test dataset and predict their digits.
-15. Compare actual and predicted labels.
-16. Create a second model with 256 neurons in the hidden layer, train, and evaluate it.
-17. Compare the original and experimental models.
+5. Normalize pixel values from 0–255 to 0–1 for the training, validation, and test sets.
+6. Build a Sequential neural network via `build_model()`: Flatten → Dense(128, ReLU) → Dense(10, Softmax).
+7. Compile the model using the Adam optimizer and sparse categorical cross-entropy loss.
+8. Train the model for 10 epochs using the explicit validation set.
+9. Evaluate the trained model on the test dataset.
+10. Plot training and validation accuracy, and training and validation loss.
+11. Randomly select five images from the test dataset (fixed seed for reproducibility) and predict their digits.
+12. Compare actual and predicted labels.
+13. Build a second model with 256 neurons in the hidden layer using the same `build_model()` function, train, and evaluate it.
+14. Compare the original and experimental models in a summary table.
 
 ---
 
 ## 8. Implementation
 
-### 8.1 Import Libraries
+The implementation is organized as a set of functions plus a `main()` pipeline, rather than one continuous script.
+
+### 8.1 Imports
 
 ```python
-import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow as tf
 from tensorflow.keras.datasets import mnist
+from sklearn.model_selection import train_test_split
 ```
 
-### 8.2 Load the Dataset
+### 8.2 Loading the Data and Creating the Validation Split
 
 ```python
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
+def load_data():
+    (x_train_full, y_train_full), (x_test, y_test) = mnist.load_data()
 
-print("Training images:", x_train.shape)
-print("Training labels:", y_train.shape)
-print("Testing images:", x_test.shape)
-print("Testing labels:", y_test.shape)
+    x_train, x_val, y_train, y_val = train_test_split(
+        x_train_full,
+        y_train_full,
+        test_size=0.1,
+        random_state=42,
+        stratify=y_train_full,
+    )
+
+    print("Training images:", x_train.shape)
+    print("Validation images:", x_val.shape)
+    print("Testing images:", x_test.shape)
+
+    return x_train, y_train, x_val, y_val, x_test, y_test
 ```
 
-Expected output:
+Expected shapes:
 
 ```text
-Training images: (60000, 28, 28)
-Training labels: (60000,)
-Testing images: (10000, 28, 28)
-Testing labels: (10000,)
+Training images:   (54000, 28, 28)
+Validation images: (6000, 28, 28)
+Testing images:    (10000, 28, 28)
 ```
 
 ### 8.3 Dataset Exploration
 
 ```python
-plt.figure(figsize=(10, 4))
-for i in range(10):
-    plt.subplot(2, 5, i + 1)
-    plt.imshow(x_train[i], cmap="gray")
-    plt.title(f"Label: {y_train[i]}")
-    plt.axis("off")
-plt.tight_layout()
-plt.show()
+def show_sample_images(images, labels, n=10):
+    plt.figure(figsize=(10, 4))
+    for i in range(n):
+        plt.subplot(2, 5, i + 1)
+        plt.imshow(images[i], cmap="gray")
+        plt.title(f"Label: {labels[i]}")
+        plt.axis("off")
+    plt.tight_layout()
+    plt.show()
 ```
+
+**[Insert the sample-images output from the notebook here.]**
 
 The displayed images show handwritten digits represented as grayscale images.
 
-### 8.4 Data Preprocessing
+### 8.4 Preprocessing
 
 ```python
-x_train = x_train.astype("float32") / 255.0
-x_test = x_test.astype("float32") / 255.0
+def preprocess(*datasets):
+    return [d.astype("float32") / 255.0 for d in datasets]
 ```
 
-This normalizes pixel values to the range 0–1 ($X_{normalized} = X / 255$), making the inputs smaller and easier for the network to train on.
+This is applied to the training, validation, and test images together, scaling all pixel values to the 0–1 range.
 
-### 8.5 Building the Model
-
-```python
-model = tf.keras.Sequential([
-    tf.keras.layers.Flatten(input_shape=(28, 28)),
-    tf.keras.layers.Dense(128, activation="relu"),
-    tf.keras.layers.Dense(10, activation="softmax")
-])
-```
-
-- `Flatten` converts each 28 × 28 image into a 1-D vector of 784 values.
-- The hidden `Dense` layer has 128 neurons with ReLU activation.
-- The output `Dense` layer has 10 neurons (one per digit) with Softmax activation.
-
-### 8.6 Compiling the Model
+### 8.5 Building and Compiling the Model
 
 ```python
-model.compile(
-    optimizer="adam",
-    loss="sparse_categorical_crossentropy",
-    metrics=["accuracy"]
-)
+def build_model(hidden_neurons=128, activation="relu"):
+    model = tf.keras.Sequential([
+        tf.keras.layers.Flatten(input_shape=(28, 28)),
+        tf.keras.layers.Dense(hidden_neurons, activation=activation),
+        tf.keras.layers.Dense(10, activation="softmax"),
+    ])
+    model.compile(
+        optimizer="adam",
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"],
+    )
+    return model
 ```
 
 | Component | Selection |
@@ -229,23 +248,25 @@ model.compile(
 | Optimizer | Adam |
 | Loss Function | Sparse Categorical Cross-Entropy |
 | Metric | Accuracy |
-| Hidden Activation | ReLU |
+| Hidden Activation | ReLU (configurable) |
 | Output Activation | Softmax |
+| Hidden Neurons | 128 (baseline), 256 (experiment) |
 
-### 8.7 Training the Model
+### 8.6 Training the Model
 
 ```python
-history = model.fit(
-    x_train,
-    y_train,
-    epochs=10,
-    validation_split=0.1
-)
+def train_model(model, x_train, y_train, x_val, y_val, epochs=10):
+    return model.fit(
+        x_train,
+        y_train,
+        validation_data=(x_val, y_val),
+        epochs=epochs,
+    )
 ```
 
-The model trains for 10 epochs, with the training data split into 90% training / 10% validation. The validation set monitors performance on unseen samples during training.
+The model trains for 10 epochs, using the validation set created explicitly in §8.2 rather than an automatic split.
 
-### 8.8 Evaluating the Model
+### 8.7 Evaluating the Model
 
 ```python
 test_loss, test_accuracy = model.evaluate(x_test, y_test)
@@ -257,61 +278,63 @@ print("Test Accuracy:", test_accuracy)
 **Test Accuracy:** `__________`
 **Test Loss:** `__________`
 
+> Fill in with the actual values from your notebook run.
 
 The test accuracy indicates how correctly the trained model classified unseen MNIST test images.
 
-### 8.9 Visualizing Accuracy and Loss
+### 8.8 Visualizing Accuracy and Loss
 
 ```python
-plt.figure(figsize=(8, 5))
-plt.plot(history.history["accuracy"], label="Training Accuracy")
-plt.plot(history.history["val_accuracy"], label="Validation Accuracy")
-plt.xlabel("Epoch")
-plt.ylabel("Accuracy")
-plt.title("Training and Validation Accuracy")
-plt.legend()
-plt.show()
+def plot_history(history, title_suffix=""):
+    plt.figure(figsize=(8, 5))
+    plt.plot(history.history["accuracy"], label="Training Accuracy")
+    plt.plot(history.history["val_accuracy"], label="Validation Accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.title(f"Training and Validation Accuracy {title_suffix}".strip())
+    plt.legend()
+    plt.show()
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(history.history["loss"], label="Training Loss")
+    plt.plot(history.history["val_loss"], label="Validation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title(f"Training and Validation Loss {title_suffix}".strip())
+    plt.legend()
+    plt.show()
 ```
 
-
-
-```python
-plt.figure(figsize=(8, 5))
-plt.plot(history.history["loss"], label="Training Loss")
-plt.plot(history.history["val_loss"], label="Validation Loss")
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.title("Training and Validation Loss")
-plt.legend()
-plt.show()
-```
+**[Insert the accuracy graph here.]**
+**[Insert the loss graph here.]**
 
 **Observation:** Training and validation accuracy generally increase, while loss decreases, as the number of epochs increases — indicating the network is learning useful features. The validation curves show how well the model generalizes to unseen data.
 
-### 8.10 Testing on Five Handwritten Images
+### 8.9 Testing on Five Handwritten Images
 
-Since separate handwritten image files were not used, five images were randomly selected (with a fixed seed for reproducibility) from the MNIST test dataset.
-
-```python
-np.random.seed(42)
-
-sample_indices = np.random.choice(len(x_test), 5, replace=False)
-sample_images = x_test[sample_indices]
-actual_labels = y_test[sample_indices]
-
-predictions = model.predict(sample_images, verbose=0)
-predicted_labels = np.argmax(predictions, axis=1)
-```
+Five images are selected at random (with a fixed seed) from the MNIST test dataset, rather than using separately created handwritten images:
 
 ```python
-plt.figure(figsize=(12, 4))
-for i in range(5):
-    plt.subplot(1, 5, i + 1)
-    plt.imshow(sample_images[i], cmap="gray")
-    plt.title(f"Actual: {actual_labels[i]}\nPredicted: {predicted_labels[i]}")
-    plt.axis("off")
-plt.tight_layout()
-plt.show()
+def show_predictions(model, x_test, y_test, n=5, seed=42):
+    rng = np.random.default_rng(seed)
+    sample_indices = rng.choice(len(x_test), n, replace=False)
+
+    sample_images = x_test[sample_indices]
+    actual_labels = y_test[sample_indices]
+
+    predictions = model.predict(sample_images, verbose=0)
+    predicted_labels = np.argmax(predictions, axis=1)
+
+    plt.figure(figsize=(12, 4))
+    for i in range(n):
+        plt.subplot(1, n, i + 1)
+        plt.imshow(sample_images[i], cmap="gray")
+        plt.title(f"Actual: {actual_labels[i]}\nPredicted: {predicted_labels[i]}")
+        plt.axis("off")
+    plt.tight_layout()
+    plt.show()
+
+    return actual_labels, predicted_labels
 ```
 
 **[Insert the five-image prediction output here.]**
@@ -330,33 +353,19 @@ plt.show()
 
 ## 9. Experiment: Changing the Number of Hidden Neurons
 
-The original model uses 128 neurons in the hidden Dense layer. For the experiment, this was increased to 256 neurons, keeping all other parameters unchanged.
+The original model uses 128 neurons in the hidden Dense layer. For the experiment, `build_model()` and `train_model()` are reused with `hidden_neurons=256`, keeping all other parameters unchanged:
 
 ```python
-experiment_model = tf.keras.Sequential([
-    tf.keras.layers.Flatten(input_shape=(28, 28)),
-    tf.keras.layers.Dense(256, activation="relu"),
-    tf.keras.layers.Dense(10, activation="softmax")
-])
+experiment_model = build_model(hidden_neurons=256)
+experiment_history = train_model(experiment_model, x_train, y_train, x_val, y_val)
 
-experiment_model.compile(
-    optimizer="adam",
-    loss="sparse_categorical_crossentropy",
-    metrics=["accuracy"]
-)
+exp_loss, exp_accuracy = experiment_model.evaluate(x_test, y_test)
 
-experiment_history = experiment_model.fit(
-    x_train,
-    y_train,
-    epochs=10,
-    validation_split=0.1
-)
-
-experiment_loss, experiment_accuracy = experiment_model.evaluate(x_test, y_test)
-
-print("Experiment Test Loss:", experiment_loss)
-print("Experiment Test Accuracy:", experiment_accuracy)
+print("Experiment Test Loss:", exp_loss)
+print("Experiment Test Accuracy:", exp_accuracy)
 ```
+
+Because both models are built from the same function, the comparison isolates the effect of hidden-layer size — nothing else in the architecture or training setup differs.
 
 **Comparison**
 
@@ -365,7 +374,7 @@ print("Experiment Test Accuracy:", experiment_accuracy)
 | Original | 128 | 10 | ______ | ______ |
 | Experimental | 256 | 10 | ______ | ______ |
 
-> Fill in using the actual results produced by the notebook.
+> Fill in using the actual results printed by `main()`.
 
 **Observation:** Increasing the number of neurons from 128 to 256 increases the hidden layer's capacity, allowing it to learn a larger number of patterns. Whether this meaningfully improves test accuracy should be judged from the actual results — more neurons do not automatically guarantee better performance.
 
@@ -373,8 +382,9 @@ print("Experiment Test Accuracy:", experiment_accuracy)
 
 ## 10. Results
 
-- Training dataset: 60,000 images | Testing dataset: 10,000 images
+- Training images (after split): ~54,000 | Validation images: ~6,000 | Testing images: 10,000
 - Image dimensions: 28 × 28 pixels
+- Validation split method: `train_test_split` (stratified, 10%, seed 42)
 - Hidden layer: 128 neurons, ReLU activation
 - Output layer: 10 neurons, Softmax activation
 - Epochs: 10 | Optimizer: Adam | Loss: Sparse Categorical Cross-Entropy
@@ -383,9 +393,11 @@ print("Experiment Test Accuracy:", experiment_accuracy)
 
 ## 11. Discussion
 
-This experiment demonstrates the basic workflow of a deep learning classification problem. The MNIST images were normalized to make input values suitable for training, and the Flatten layer converted each two-dimensional image into a one-dimensional input vector. A Dense hidden layer with ReLU activation learned patterns in the images, and the final Softmax layer produced per-class probabilities, with the highest-probability class taken as the prediction.
+This experiment demonstrates the basic workflow of a deep learning classification problem, implemented as a small set of reusable functions rather than a single linear script. The MNIST images were normalized to make input values suitable for training, and an explicit, stratified `train_test_split` was used to create the validation set instead of relying on Keras's automatic split — giving more control and transparency over how the data is partitioned.
 
-Training and validation curves were used to observe performance across epochs, and the model was evaluated on a held-out test set. Finally, the number of hidden neurons was changed from 128 to 256 to observe the effect of increasing model capacity.
+The Flatten layer converted each two-dimensional image into a one-dimensional input vector. A Dense hidden layer with ReLU activation learned patterns in the images, and the final Softmax layer produced per-class probabilities, with the highest-probability class taken as the prediction.
+
+Training and validation curves were used to observe performance across epochs, and the model was evaluated on a held-out test set that was untouched during training or validation. Finally, because model construction is factored into `build_model()`, the experiment (256 neurons) reuses the exact same code path as the baseline, isolating hidden-layer size as the only variable being tested.
 
 ## 12. Advantages
 
@@ -393,14 +405,15 @@ Training and validation curves were used to observe performance across epochs, a
 2. High classification accuracy on the MNIST dataset.
 3. TensorFlow/Keras provides a straightforward model-building interface.
 4. The model trains relatively quickly.
-5. The experiment demonstrates how architecture choices affect performance.
+5. Reusable functions (`build_model`, `train_model`, `plot_history`) make it easy to run further experiments with minimal code duplication.
+6. The explicit, stratified train/validation split gives more control than an automatic split.
 
 ## 13. Limitations
 
 1. Uses a fully connected network rather than a Convolutional Neural Network (CNN).
 2. Flattening the image discards some spatial structure.
 3. Performance on more complex real-world handwriting may be lower than on MNIST.
-4. Only one architectural parameter was changed in the experiment.
+4. Only one architectural parameter (hidden neuron count) was changed in the experiment.
 5. The five "handwritten" test samples come from the MNIST test set, not separately created images.
 
 ## 14. Future Improvements
@@ -409,16 +422,16 @@ Training and validation curves were used to observe performance across epochs, a
 - Add dropout layers to reduce overfitting.
 - Tune the number and size of hidden layers.
 - Apply image augmentation.
-- Test different activation functions.
+- Test different activation functions (the `activation` parameter in `build_model()` already supports this).
 - Use batch normalization.
 - Perform systematic hyperparameter tuning.
 - Test the model on handwritten images created outside the MNIST dataset.
 
 ## 15. Conclusion
 
-A simple neural network for handwritten digit classification was implemented using TensorFlow/Keras and the MNIST dataset. The dataset was explored, normalized, and used to train a network consisting of a Flatten layer, a Dense hidden layer with ReLU activation, and a Softmax output layer with ten classes.
+A simple neural network for handwritten digit classification was implemented using TensorFlow/Keras and the MNIST dataset, structured as reusable functions for data loading, preprocessing, model building, training, evaluation, and visualization. The dataset was explored, split into training/validation/test sets using a stratified `train_test_split`, normalized, and used to train a network consisting of a Flatten layer, a Dense hidden layer with ReLU activation, and a Softmax output layer with ten classes.
 
-The model was evaluated using test accuracy, with training and validation accuracy/loss visualized across epochs. Five randomly selected test images were classified and compared against their actual labels. A follow-up experiment increased the hidden layer from 128 to 256 neurons, and the two configurations were compared.
+The model was evaluated using test accuracy, with training and validation accuracy/loss visualized across epochs. Five randomly selected test images were classified and compared against their actual labels. A follow-up experiment increased the hidden layer from 128 to 256 neurons using the same `build_model()` function, and the two configurations were compared in a summary table.
 
 Overall, the exercise provides a practical understanding of the deep learning workflow: dataset preparation, model design, training, evaluation, prediction, visualization, and experimentation.
 
@@ -426,22 +439,24 @@ Overall, the exercise provides a practical understanding of the deep learning wo
 
 ## 16. Technologies Used
 
-Python · TensorFlow · Keras · NumPy · Matplotlib · Jupyter Notebook / Google Colab
+Python · TensorFlow · Keras · NumPy · Matplotlib · scikit-learn · Jupyter Notebook / Google Colab
 
 ## 17. Repository Structure
 
 ```text
 MNIST-Digit-Classification/
-├── MNIST_Digit_Classification.ipynb
+├── classifier.py                       (or MNIST_Digit_Classification.ipynb)
 ├── MNIST_Report.md
 ├── README.md
 ├── requirements.txt
+└── handwritten_images/   (optional — test images are drawn from MNIST itself)
 ```
 
 ## 18. References
 
 1. TensorFlow Documentation — MNIST Dataset and Keras.
 2. Keras Documentation — Sequential Models and Dense Layers.
-3. MNIST Database of Handwritten Digits.
-4. Python NumPy Documentation.
-5. Matplotlib Documentation.
+3. scikit-learn Documentation — `train_test_split`.
+4. MNIST Database of Handwritten Digits.
+5. Python NumPy Documentation.
+6. Matplotlib Documentation.
